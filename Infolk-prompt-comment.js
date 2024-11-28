@@ -1,65 +1,62 @@
 // ==UserScript==
-// @name         Comment prompt with toggle
-// @Author URL   https://civitai.com/user/infolk
-// @version      1.1
-// @description  Adds functionality to comment/uncomment the current line using Ctrl + /
-// @author       Infolk
-// @match        https://stable-diffusion-webui-automatic1111.com/*
+// @name         Comment prompt with styling
+// @version      1.2
+// @description  Adds Ctrl + / for commenting lines and styles commented lines in the prompt box
+// @author       You
+// @match        *://*/*
 // ==/UserScript==
 
 (function () {
     'use strict';
-
-    // Intercept prompt to ignore commented lines
-    var promptOrig = window.prompt;
-    window.prompt = function (text, defaultText) {
-        if (text.trimStart().startsWith("#")) {
-            return null;
+    // Обработчик Ctrl + /
+    document.addEventListener('keydown', function (event) {
+        if (event.ctrlKey && event.key === 'Y') {
+            window.prompt("Test message with #comment");
         }
-        return promptOrig(text, defaultText);
-    };
 
-    // Add event listener for keypress to toggle comments
-    document.addEventListener("keydown", function (event) {
-        // Check if Ctrl + / is pressed
-        if (event.ctrlKey && event.key === "/") {
-            // Prevent default browser action
-            event.preventDefault();
+        if (event.ctrlKey && event.key === '/') {
+            const activeElement = document.activeElement;
 
-            // Find the focused text area or input
-            var activeElement = document.activeElement;
-            if (activeElement && (activeElement.tagName === "TEXTAREA" || activeElement.tagName === "INPUT")) {
-                toggleComment(activeElement);
+            if (activeElement.tagName === 'TEXTAREA') {
+                event.preventDefault();
+
+                const textarea = activeElement;
+                const start = textarea.selectionStart;
+                const end = textarea.selectionEnd;
+
+                const lines = textarea.value.split('\n');
+                const cursorLineStart = textarea.value.slice(0, start).split('\n').length - 1;
+                const cursorLineEnd = textarea.value.slice(0, end).split('\n').length - 1;
+
+                // Для каждой строки в выделении
+                for (let i = cursorLineStart; i <= cursorLineEnd; i++) {
+                    const line = lines[i].trimStart(); // Убираем начальные пробелы для корректной проверки
+
+                    // Если строка не начинается с # или # не в начале строки
+                    if (!line.startsWith('#')) {
+                        const commentIndex = line.indexOf('#');
+                        if (commentIndex === -1) {
+                            // Если нет #, то добавляем его в начало строки
+                            lines[i] = '#' + lines[i];
+                        } else {
+                            // Если # есть в строке, скрываем всё, что после # (до конца строки)
+                            lines[i] = line.slice(0, commentIndex);
+                        }
+                    } else {
+                        // Если строка начинается с #, то убираем комментарий
+                        lines[i] = line.replace(/^\s*#\s*/, ''); // Удаляем # и лишние пробелы
+                    }
+                }
+
+                // Обновляем текст в textarea
+                const updatedValue = lines.join('\n');
+                const delta = updatedValue.length - textarea.value.length;
+
+                textarea.value = updatedValue;
+
+                // Сохраняем выделение с учётом изменений
+                textarea.setSelectionRange(start + delta, end + delta);
             }
         }
     });
-
-    // Toggle comment for the current line in the input or text area
-    function toggleComment(inputElement) {
-        var cursorPos = inputElement.selectionStart;
-        var text = inputElement.value;
-
-        // Find the start and end of the current line
-        var lineStart = text.lastIndexOf("\n", cursorPos - 1) + 1;
-        var lineEnd = text.indexOf("\n", cursorPos);
-        if (lineEnd === -1) {
-            lineEnd = text.length;
-        }
-
-        var line = text.slice(lineStart, lineEnd);
-
-        // Toggle comment
-        if (line.trimStart().startsWith("#")) {
-            // Uncomment
-            var uncommentedLine = line.replace(/^(\s*)#/, "$1");
-            inputElement.value = text.slice(0, lineStart) + uncommentedLine + text.slice(lineEnd);
-        } else {
-            // Comment
-            inputElement.value = text.slice(0, lineStart) + "#" + line + text.slice(lineEnd);
-        }
-
-        // Restore cursor position
-        inputElement.selectionStart = cursorPos;
-        inputElement.selectionEnd = cursorPos;
-    }
 })();
